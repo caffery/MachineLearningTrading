@@ -1,9 +1,11 @@
 """MLT - MC2 - P2 Bollinger Bands Strategy"""
-
+import os
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import util
+
+from portfolio.analysis import get_portfolio_stats, get_portfolio_value, plot_normalized_data
+from util import get_data
+import marketsim
 
 def bollinger_indicator(quotation_serie, window_length = 20, dev_factor=2):
     """Bollinger band indicator
@@ -108,6 +110,94 @@ def bollinger_strategy( bollinger_df ):
     
     return signal
     
+def generate_trades(stock, cash, bollinger_df, bollinger_strg):
+    """Generate trading orders according to the bollinger strategy
+    
+    Parameters
+    ----------
+        bollinger_df: Bollinger indicator, as returned by bollinger_indicator
+        function.
+        bollinger_strg: Trading signal with the bollinger strategy
+    
+    Returns
+    -------
+        Dataframe with the trading orders of the strategy
+    
+    """    
+    orders = pd.DataFrame(columns = ["Date","Symbol","Order","Shares"] )
+    
+    #For each date    
+    quantity = 0.0 #number of stocks 
+    for date in bollinger_strg.index:
+        signal = bollinger_strg[date]
+
+        #LONG ENTRY generates a buying signal        
+        if signal == "LONG_ENTRY":
+            quantity = int( float( cash ) / bollinger_df["Price"][date] )
+            order = {'Date' : date, 'Symbol' : stock, 'Order' : "BUY", 'Shares' : quantity}
+            orders = orders.append(order, ignore_index=True)
+        #LONG_EXIT generates a sell signal of the same quantity of stock
+        elif signal == "LONG_EXIT":
+            order = {'Date' : date, 'Symbol' : stock, 'Order' : "SELL", 'Shares' : quantity}
+            orders = orders.append(order, ignore_index=True)
+        #SHORT_ENTRY generates a sell signal
+        elif signal == "SHORT_ENTRY":
+            quantity = int( float( cash ) / bollinger_df["Price"][date] )
+            order = {'Date' : date, 'Symbol' : stock, 'Order' : "SELL", 'Shares' : quantity}
+            orders = orders.append(order, ignore_index=True)
+        #SHORT_EXIT generates a buy signal of the same quantity of stock
+        elif signal == "SHORT_EXIT":
+            order = {'Date' : date, 'Symbol' : stock, 'Order' : "BUY", 'Shares' : quantity}
+            orders = orders.append(order, ignore_index=True)
+        else:
+            pass 
+    
+    return orders
+    
+    
+def plot_bollinger_strategy( bollinger_df, bollinger_strg, outputfile="output/bollinger.png" ):
+    """Plot of a bollinger strategy
+    
+    Given a bollinger band indicator, plot the stock price along with bollinger 
+    bands and trading signals.
+    
+    Parameters
+    ----------
+        bollinger_df: Bollinger indicator, as returned by bollinger_indicator
+        function.
+        bollinger_strg: Trading signal with the bollinger strategy
+        outputfile: output file name to save the plot in a file
+    
+    Returns
+    -------
+        None
+    
+    """    
+    #Get trading signal dates
+    long_entries = bollinger_strg[ bollinger_strg == "LONG_ENTRY" ] .index
+    short_entries = bollinger_strg[ bollinger_strg == "SHORT_ENTRY" ] .index
+    exits = bollinger_strg[ (bollinger_strg == "LONG_EXIT") | (bollinger_strg == "SHORT_EXIT")] .index
+        
+    #Plot bollinger bands
+    plt.plot( bollinger_df.index.to_pydatetime(), bollinger_df )    
+    plt.xlabel('Date')
+    plt.ylabel('Prices')
+    plt.title('Bollinger bands')
+    plt.grid(b=True, which='both', color='0.65',linestyle='-')
+    plt.gcf().autofmt_xdate() #Pretty print of dates on x axis
+    
+    #Plot of trading signal
+    plt.plot( long_entries.to_pydatetime(), bollinger_df["Price"][long_entries],  marker='^', color='b', ls='', label="Long Entry" )  
+    plt.plot( short_entries.to_pydatetime(), bollinger_df["Price"][short_entries], marker='v', color='r', ls='', label="Short Entry" )
+    plt.plot( exits.to_pydatetime(), bollinger_df["Price"][exits],  marker='o', color='g', ls='', label="Exit")
+    plt.legend(loc='lower left' )
+    
+    #Save and show the plot
+    if outputfile is not None:
+        plt.savefig(outputfile)
+    plt.show()
+    
+    
 def test_run():
     """Driver function."""
     
@@ -121,34 +211,54 @@ def test_run():
     
     #Get stock quotation
     dates =  pd.date_range(start_date, end_date)
-    stock_prices = util.get_data(stock_symbol, dates)
+    stock_prices = get_data(stock_symbol, dates)
     
     #Get bollinger indicator and trading signals    
     bollinger = bollinger_indicator(stock_prices[ stock_symbol[0] ])    
     trading_signal = bollinger_strategy( bollinger )
 
-    #Get trading signal dates
-    long_entries = trading_signal[ trading_signal == "LONG_ENTRY" ] .index
-    short_entries = trading_signal[ trading_signal == "SHORT_ENTRY" ] .index
-    exits = trading_signal[ (trading_signal == "LONG_EXIT") | (trading_signal == "SHORT_EXIT")] .index
-        
-    #Plot bollinger bands
-    plt.plot( bollinger.index.to_pydatetime(), bollinger )    
-    plt.xlabel('Date')
-    plt.ylabel('Prices')
-    plt.title('Bollinger bands')
-    plt.grid(b=True, which='both', color='0.65',linestyle='-')
-    plt.gcf().autofmt_xdate() #Pretty print of dates on x axis
+    #Get orders and save to csv order file
+    orders = generate_trades(stock_symbol[0], start_val, bollinger, trading_signal)
+    orders_file = os.path.join("orders", "bollinger.csv")    
+    orders.to_csv(orders_file, index=False)
     
-    #Plot of trading signal
-    plt.plot( long_entries.to_pydatetime(), bollinger["Price"][long_entries],  marker='^', color='b', ls='', label="Long Entry" )  
-    plt.plot( short_entries.to_pydatetime(), bollinger["Price"][short_entries], marker='v', color='r', ls='', label="Short Entry" )
-    plt.plot( exits.to_pydatetime(), bollinger["Price"][exits],  marker='o', color='g', ls='', label="Exit")
-    plt.legend(loc='lower left' )
+    #Plot strategy
+    plot_bollinger_strategy( bollinger, trading_signal )
     
-    #Save and show the plot
-    plt.savefig("output/bollinger.png")
-    plt.show()
+    #Measure performance of strategy
+    #Process orders
+    portvals = marketsim.compute_portvals(start_date, end_date, orders_file, start_val)
+    portvals = portvals[ "_VALUE" ]
+    
+    # Get portfolio stats
+    cum_ret, avg_daily_ret, std_daily_ret, sharpe_ratio = get_portfolio_stats(portvals)
+
+    # Simulate a $SPX-only reference portfolio to get stats
+    prices_SPX = get_data(['^GSPC'], pd.date_range(start_date, end_date))
+    prices_SPX = prices_SPX[['^GSPC']]  # remove SPY
+    portvals_SPX = get_portfolio_value(prices_SPX, [1.0])
+    cum_ret_SPX, avg_daily_ret_SPX, std_daily_ret_SPX, sharpe_ratio_SPX = get_portfolio_stats(portvals_SPX)
+
+    # Compare portfolio against $SPX
+    print "Data Range: {} to {}".format(start_date, end_date)
+    print
+    print "Sharpe Ratio of Fund: {}".format(sharpe_ratio)
+    print "Sharpe Ratio of $SPX: {}".format(sharpe_ratio_SPX)
+    print
+    print "Cumulative Return of Fund: {}".format(cum_ret)
+    print "Cumulative Return of $SPX: {}".format(cum_ret_SPX)
+    print
+    print "Standard Deviation of Fund: {}".format(std_daily_ret)
+    print "Standard Deviation of $SPX: {}".format(std_daily_ret_SPX)
+    print
+    print "Average Daily Return of Fund: {}".format(avg_daily_ret)
+    print "Average Daily Return of $SPX: {}".format(avg_daily_ret_SPX)
+    print
+    print "Final Portfolio Value: {}".format(portvals[-1])
+
+    # Plot computed daily portfolio value
+    df_temp = pd.concat([portvals, prices_SPX['^GSPC']], keys=['Portfolio', '^GSPC'], axis=1)
+    plot_normalized_data(df_temp, title="Daily portfolio value and $SPX")
 
 if __name__ == "__main__":
     test_run()

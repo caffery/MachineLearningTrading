@@ -1,7 +1,6 @@
 """MLT: Utility code."""
 import os
 import pandas as pd
-import pandas.io.data
 import matplotlib.pyplot as plt
 
 def symbol_to_path(symbol, base_dir=os.path.join(".", "data")):
@@ -50,8 +49,6 @@ def plot_data(df, title="Stock prices", xlabel="Date", ylabel="Price", filename=
         
     plt.show()
     
-    
-
 
 def download_data(symbol, dates):
     """Download historical prices from Yahoo Finance website and save

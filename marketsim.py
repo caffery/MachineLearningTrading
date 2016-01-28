@@ -95,6 +95,7 @@ def compute_portvals(start_date, end_date, orders_file, start_val):
             raise "Leverage > 2.0 achieved"
                     
         #Update portfolio from the daily snapshot
+        #TODO: Is this causing performance issues?
         for symbol in portfolio.keys():
             portfolio[ symbol ][ date ] = portfolio_snapshot[ symbol ]
         
