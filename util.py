@@ -10,7 +10,9 @@ def symbol_to_path(symbol, base_dir=os.path.join(".", "data")):
 
 
 def get_data(symbols, dates, addSPY=True):
-    """Read stock data (adjusted close) for given symbols from CSV files."""
+    """Read stock data (adjusted close) for given symbols from CSV files.
+    TODO: We should always download the file from the database   
+    """
     df = pd.DataFrame(index=dates)
     if addSPY and 'SPY' not in symbols:  # add SPY for reference, if absent
         symbols = ['SPY'] + symbols
@@ -37,12 +39,19 @@ def get_data(symbols, dates, addSPY=True):
     return df
 
 
-def plot_data(df, title="Stock prices", xlabel="Date", ylabel="Price"):
+def plot_data(df, title="Stock prices", xlabel="Date", ylabel="Price", filename=None):
     """Plot stock prices with a custom title and meaningful axis labels."""
     ax = df.plot(title=title, fontsize=12)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
+    
+    if filename is not None:
+        plt.savefig(filename)
+        
     plt.show()
+    
+    
+
 
 def download_data(symbol, dates):
     """Download historical prices from Yahoo Finance website and save
