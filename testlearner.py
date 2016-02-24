@@ -1,7 +1,6 @@
 """
 Test a learner.  (c) 2015 Tucker Balch
 """
-
 import numpy as np
 import math
 import learners.LinRegLearner as lrl
@@ -52,7 +51,7 @@ if __name__=="__main__":
     print "***********************"      
     print "Results for KNN Learner"
     print "***********************"  
-    learner = knn.KNNLearner(3)
+    learner = knn.KNNLearner(4)
     learner.addEvidence( trainX, trainY )
     
     # evaluate in sample
@@ -72,12 +71,37 @@ if __name__=="__main__":
     c = np.corrcoef(predY, y=testY)
     print "corr: ", c[0,1]
     
-    #Create KNN learner and train it
+    #Create Bagging learner and train it
     print     
-    print "***********************"      
+    print "*******************"      
     print "Results for Bagging"
-    print "***********************" 
+    print "*******************" 
     learner = bag.BagLearner()
+    learner.addEvidence( trainX, trainY )
+    
+    # evaluate in sample
+    predY = learner.query(trainX) # get the predictions
+    rmse = math.sqrt(((trainY - predY) ** 2).sum()/trainY.shape[0])
+    print "In sample results"
+    print "RMSE: ", rmse
+    c = np.corrcoef(predY, y=trainY)
+    print "corr: ", c[0,1]
+
+    # evaluate out of sample
+    predY = learner.query(testX) # get the predictions
+    rmse = math.sqrt(((testY - predY) ** 2).sum()/testY.shape[0])
+    print
+    print "Out of sample results"
+    print "RMSE: ", rmse
+    c = np.corrcoef(predY, y=testY)
+    print "corr: ", c[0,1]
+    
+    #Create AdaBoost learner and train it
+    print     
+    print "********************"      
+    print "Results for AdaBoost"
+    print "********************" 
+    learner = bag.BagLearner(boost = True)
     learner.addEvidence( trainX, trainY )
     
     # evaluate in sample
