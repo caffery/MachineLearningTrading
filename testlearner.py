@@ -16,10 +16,10 @@ if __name__=="__main__":
     test_rows = data.shape[0] - train_rows
 
     # separate out training and testing data
-    trainX = data[:train_rows,0:-1]
-    trainY = data[:train_rows,-1]
-    testX = data[train_rows:,0:-1]
-    testY = data[train_rows:,-1]
+    trainX = data[:train_rows, 0:-1]
+    trainY = data[:train_rows, -1]
+    testX = data[train_rows:, 0:-1]
+    testY = data[train_rows:, -1]
 
     # create a learner and train it
     print 

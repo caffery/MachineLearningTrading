@@ -1,6 +1,7 @@
 """MLT: Utility code."""
 import os
 import pandas as pd
+import pandas.io.data
 import matplotlib.pyplot as plt
 
 def symbol_to_path(symbol, base_dir=os.path.join(".", "data")):

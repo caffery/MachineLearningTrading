@@ -1,9 +1,7 @@
 """MC2-P1: Market simulator."""
 
 import pandas as pd
-import numpy as np
 import os
-import datetime
 
 from util import get_data, plot_data
 from portfolio.analysis import get_portfolio_value, get_portfolio_stats, plot_normalized_data
